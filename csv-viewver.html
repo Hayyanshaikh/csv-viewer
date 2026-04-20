@@ -1,0 +1,1081 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
+    />
+    <title>DataForge Pro - Excel Style Viewer</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <style>
+      body {
+        font-family: "Inter", sans-serif;
+        overflow: hidden;
+        height: 100vh;
+        width: 100vw;
+        background-color: #f8fafc;
+      }
+      .custom-scroll::-webkit-scrollbar {
+        height: 6px;
+        width: 6px;
+      }
+      .custom-scroll::-webkit-scrollbar-track {
+        background: #f1f5f9;
+      }
+      .custom-scroll::-webkit-scrollbar-thumb {
+        background: #cbd5e1;
+        border-radius: 10px;
+      }
+
+      #drop-overlay {
+        display: none;
+        position: fixed;
+        inset: 0;
+        background: rgba(59, 130, 246, 0.1);
+        backdrop-filter: blur(8px);
+        border: 4px dashed #3b82f6;
+        z-index: 9999;
+        pointer-events: none;
+        justify-content: center;
+        align-items: center;
+      }
+      .drag-active #drop-overlay {
+        display: flex;
+      }
+
+      th {
+        white-space: nowrap;
+        position: sticky;
+        top: 0;
+        z-index: 20;
+        background: #f8fafc;
+        transition: 0.2s;
+        padding: 2px 20px !important;
+        font-size: 11px;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        font-weight: 800;
+        color: #64748b;
+        border-bottom: 2px solid #e2e8f0;
+        user-select: none;
+      }
+      th:hover {
+        background: #4363a10d;
+      }
+
+      td {
+        white-space: nowrap;
+        padding: 12px 20px !important;
+        font-size: 13px;
+        color: #334155;
+        border-bottom: 1px solid #f1f5f9;
+      }
+      /* tr:nth-child(even) {
+        background-color: #f8fafc;
+      } */
+      tr:hover {
+        background-color: #f1f5f9;
+      }
+
+      .search-highlight {
+        background-color: #ffeb00;
+        color: #0007;
+        font-weight: 600;
+        border-radius: 3px;
+        padding: 1px 5px;
+      }
+
+      .app-dropdown {
+        position: absolute;
+        background: white;
+        border: 1px solid #e2e8f0;
+        border-radius: 8px;
+        box-shadow: 0 20px 50px rgba(0, 0, 0, 0.1);
+        z-index: 1000;
+        width: 300px;
+        max-height: 520px;
+        display: none;
+        flex-direction: column;
+        overflow: hidden;
+      }
+
+      .dropdown-header {
+        padding: 16px 16px 8px 16px;
+      }
+
+      /* New Selection Actions Bar */
+      .selection-actions {
+        display: flex;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 4px 20px 12px 20px;
+        border-bottom: 1px solid #f1f5f9;
+      }
+      .action-link {
+        font-size: 11px;
+        font-weight: 700;
+        color: #2563eb;
+        text-transform: capitalize;
+        letter-spacing: 0.025em;
+        cursor: pointer;
+        transition: opacity 0.2s;
+      }
+      .action-link:nth-child(2) {
+        color: #999;
+      }
+      .action-link:nth-child(2):hover {
+        color: #555;
+      }
+      .action-link:hover {
+        opacity: 0.7;
+        text-decoration: underline;
+      }
+
+      .dropdown-list {
+        overflow-y: auto;
+        flex-grow: 1;
+        padding: 8px;
+      }
+      .dropdown-option {
+        padding: 8px 12px;
+        margin: 1px 4px;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        font-size: 13px;
+        cursor: pointer;
+        transition: all 0.2s;
+        color: #475569;
+        font-weight: 500;
+        border-radius: 10px;
+      }
+      .dropdown-option:hover {
+        background: #f8fafc;
+        color: #1e293b;
+      }
+      .dropdown-footer {
+        padding: 16px 20px;
+        border-top: 1px solid #f1f5f9;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        background: #fff;
+      }
+
+      .btn-apply {
+        background-color: #2563eb;
+        color: white;
+        padding: 8px 24px;
+        border-radius: 6px;
+        font-size: 13px;
+        font-weight: 700;
+        transition: all 0.2s;
+      }
+      .btn-apply:hover {
+        background-color: #1d4ed8;
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(37, 99, 235, 0.2);
+      }
+
+      .filter-active-icon {
+        color: #2563eb !important;
+      }
+      .sort-icon {
+        font-size: 10px;
+        margin-left: 4px;
+        opacity: 0.3;
+      }
+      .sort-active {
+        opacity: 1;
+        color: #2563eb;
+      }
+
+      .modal-enter {
+        animation: slideUp 0.3s ease-out;
+      }
+      @keyframes slideUp {
+        from {
+          transform: translateY(20px);
+          opacity: 0;
+        }
+        to {
+          transform: translateY(0);
+          opacity: 1;
+        }
+      }
+
+      .group-header {
+        cursor: pointer;
+        transition: background 0.2s;
+      }
+      .group-header:hover {
+        background-color: #f1f5f9 !important;
+      }
+      .hidden-row {
+        display: none;
+      }
+      .chevron-icon {
+        transition: transform 0.2s ease;
+      }
+      .expanded .chevron-icon {
+        transform: rotate(90deg);
+      }
+    </style>
+  </head>
+  <body class="text-slate-900">
+    <!-- <div id="drop-overlay">
+      <div
+        class="bg-white p-10 rounded-[40px] shadow-2xl text-center border border-slate-100"
+      >
+        <div
+          class="w-20 h-20 bg-blue-100 text-blue-600 rounded-3xl flex items-center justify-center mx-auto mb-6"
+        >
+          <svg
+            class="w-10 h-10"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            ></path>
+          </svg>
+        </div>
+        <p class="text-2xl font-black text-slate-800">Drop file here</p>
+      </div>
+    </div> -->
+
+    <!-- Landing View -->
+    <div
+      id="landing"
+      class="flex h-screen items-center justify-center bg-white px-6"
+    >
+      <div class="w-full max-w-md text-center">
+        <h1 class="text-2xl font-semibold text-slate-800 mb-2">CSV Viewer</h1>
+
+        <p class="text-sm text-slate-400 mb-10">Simple data preview</p>
+
+        <div
+          id="drop-zone"
+          class="border border-slate-200 rounded-2xl p-12 cursor-pointer hover:border-blue-400 hover:bg-blue-50/20 transition group"
+        >
+          <input type="file" id="csv-input" accept=".csv" class="hidden" />
+
+          <!-- Modern Icon -->
+          <div
+            class="w-14 h-14 mx-auto mb-4 flex items-center justify-center rounded-xl bg-slate-100 text-slate-500 group-hover:bg-blue-100 group-hover:text-blue-500 transition"
+          >
+            <svg
+              class="w-7 h-7"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                d="M12 16V4m0 0l-4 4m4-4l4 4M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              />
+            </svg>
+          </div>
+
+          <p class="text-slate-600 text-sm font-medium">Upload CSV</p>
+          <p class="text-xs text-slate-400 mt-1">Drag & drop ya click karo</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Main App Modal -->
+    <div
+      id="modal"
+      class="fixed inset-0 bg-white z-[100] hidden flex flex-col modal-enter"
+    >
+      <div
+        class="px-6 py-4 border-b border-slate-200 flex flex-wrap gap-4 items-center justify-between bg-white z-[60]"
+      >
+        <div class="flex items-center gap-6">
+          <div class="flex items-center gap-3 border-r border-slate-200 pr-6">
+            <button
+              onclick="closeModal()"
+              class="p-2 hover:bg-slate-100 rounded-lg text-slate-500"
+            >
+              <svg
+                class="w-5 h-5"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path stroke-width="2" d="M15 19l-7-7 7-7"></path>
+              </svg>
+            </button>
+            <div class="leading-none">
+              <h3
+                id="modal-filename"
+                class="text-sm font-bold text-slate-800 truncate max-w-[150px]"
+              >
+                Document.csv
+              </h3>
+              <p
+                class="text-[10px] text-blue-600 font-bold uppercase tracking-wider"
+              >
+                Dataset Viewer
+              </p>
+            </div>
+          </div>
+          <div class="flex items-center gap-2">
+            <button
+              onclick="openDashboard()"
+              class="bg-indigo-600 text-white px-4 py-2 rounded-md text-sm font-bold hover:bg-indigo-700 flex items-center gap-2 transition-colors shadow-lg shadow-indigo-100"
+            >
+              <svg
+                class="w-4 h-4"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
+                ></path>
+              </svg>
+              Analytics
+            </button>
+            <button
+              id="btn-export"
+              class="bg-emerald-600 text-white px-4 py-2 rounded-md text-sm font-bold hover:bg-emerald-700 shadow-lg shadow-emerald-100 flex items-center gap-2"
+            >
+              <svg
+                class="w-4 h-4"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
+                ></path>
+              </svg>
+              Export
+            </button>
+          </div>
+        </div>
+        <div class="flex gap-2">
+          <div class="flex-grow max-w-md relative">
+            <input
+              type="text"
+              id="global-search"
+              oninput="applyAllFilters()"
+              placeholder="Search records..."
+              class="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-md text-sm focus:ring-4 focus:ring-blue-100 focus:border-blue-400 outline-none transition-all"
+            />
+            <svg
+              class="w-4 h-4 absolute left-3.5 top-2.5 text-slate-400"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                stroke-width="2"
+                d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+              ></path>
+            </svg>
+          </div>
+
+          <button
+            id="column-selector-btn"
+            onclick="toggleColumnDropdown(event)"
+            class="bg-slate-100 text-slate-700 px-3 py-2 rounded-md text-sm font-bold hover:bg-slate-200 flex items-center gap-2 transition-colors"
+          >
+            <svg
+              class="w-4 h-4"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7m0 10a2 2 0 002 2h2a2 2 0 002-2V7a2 2 0 00-2-2h-2a2 2 0 00-2 2"
+              ></path>
+            </svg>
+          </button>
+        </div>
+      </div>
+
+      <div class="flex-grow overflow-auto custom-scroll relative bg-white">
+        <table class="w-full text-left border-collapse min-w-full">
+          <thead id="table-head"></thead>
+          <tbody id="table-body"></tbody>
+        </table>
+      </div>
+
+      <div
+        class="px-6 py-3 bg-slate-50 border-t border-slate-200 flex justify-between items-center text-[10px] font-bold text-slate-400"
+      >
+        <div id="footer-stats">Total Rows: 0 | Matches: 0</div>
+        <button
+          onclick="resetAllFilters()"
+          class="text-red-600 hover:text-red-800 uppercase flex items-center gap-1"
+        >
+          Clear Filters
+        </button>
+      </div>
+    </div>
+
+    <!-- Analytics Dashboard -->
+    <div
+      id="dashboard-modal"
+      class="fixed inset-0 bg-white z-[200] hidden flex flex-col modal-enter"
+    >
+      <div
+        class="px-6 py-3 border-b border-slate-100 flex items-center justify-between bg-white"
+      >
+        <div class="flex items-center gap-4">
+          <h2
+            class="text-lg font-black text-slate-800 tracking-tight flex items-center gap-2"
+          >
+            <svg
+              class="w-5 h-5 text-indigo-600"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M16 8v8m-4-5v5m-4-2v2m-2 4h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
+              ></path>
+            </svg>
+            Duplicate Discovery:
+          </h2>
+          <div
+            id="dashboard-summary-cards"
+            class="flex gap-4 border-l pl-4 border-slate-100"
+          ></div>
+
+          <p class="text-[10px] text-slate-400 italic">Select a column</p>
+          <select
+            id="duplicate-col-picker"
+            onchange="detectAndRenderDuplicates()"
+            class="text-[11px] font-bold bg-white border border-slate-200 rounded-lg px-3 py-1 outline-none focus:border-indigo-500 transition-all"
+          >
+            <option value="">-- Select Field --</option>
+          </select>
+        </div>
+        <button
+          onclick="closeDashboard()"
+          class="p-2 hover:bg-slate-100 rounded-full transition-colors text-slate-400"
+        >
+          <svg
+            class="w-5 h-5"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M6 18L18 6M6 6l12 12"
+            ></path>
+          </svg>
+        </button>
+      </div>
+
+      <div class="flex-grow overflow-hidden bg-white flex flex-col">
+        <div
+          id="duplicate-wrapper"
+          class="flex-grow overflow-hidden hidden flex flex-col"
+        >
+          <div
+            id="duplicate-data-container"
+            class="overflow-auto flex-grow custom-scroll"
+          >
+            <table
+              class="w-full text-left border-collapse min-w-full table-fixed"
+            >
+              <thead
+                id="duplicate-table-head"
+                class="bg-white border-b border-slate-200 sticky top-0 z-30"
+              ></thead>
+              <tbody id="duplicate-table-body" class="text-sm"></tbody>
+            </table>
+          </div>
+          <div
+            id="no-duplicates-msg"
+            class="p-20 text-center text-slate-400 hidden italic"
+          >
+            No duplicate groups found in this column.
+          </div>
+        </div>
+        <div
+          id="duplicate-placeholder"
+          class="flex-grow flex items-center justify-center text-slate-300"
+        >
+          <div class="text-center">
+            <svg
+              class="w-12 h-12 mx-auto mb-3 opacity-20"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"
+              ></path>
+            </svg>
+            <p class="font-bold text-sm">
+              Select a column to analyze duplicates
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Column Visibility Dropdown -->
+    <div id="column-dropdown" class="app-dropdown">
+      <div class="dropdown-header">
+        <input
+          type="text"
+          id="column-search"
+          oninput="renderColumnOptions()"
+          placeholder="Find columns..."
+          class="w-full px-4 py-2 text-sm border border-slate-200 rounded-md outline-none focus:border-blue-400 bg-slate-50"
+        />
+      </div>
+      <!-- Bulk Action Bar -->
+      <div class="selection-actions">
+        <span class="action-link" onclick="bulkSelectColumns(true)"
+          >Select All</span
+        >
+        <span class="action-link" onclick="bulkSelectColumns(false)"
+          >Clear All</span
+        >
+      </div>
+      <div id="column-options-list" class="dropdown-list custom-scroll"></div>
+      <div class="dropdown-footer">
+        <span class="text-[11px] text-slate-400 font-bold" id="col-count-status"
+          >0 Visible</span
+        >
+        <button
+          onclick="closeColumnDropdown()"
+          class="btn-apply flex items-center gap-2"
+        >
+          <svg
+            class="w-3.5 h-3.5"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M5 13l4 4L19 7"
+            ></path>
+          </svg>
+          Done
+        </button>
+      </div>
+    </div>
+
+    <!-- Cell Filter Dropdown -->
+    <div id="filter-dropdown" class="app-dropdown">
+      <div class="dropdown-header">
+        <input
+          type="text"
+          id="filter-search"
+          oninput="renderFilterOptions()"
+          placeholder="Filter values..."
+          class="w-full px-4 py-2 text-sm border border-slate-200 rounded-md outline-none focus:border-blue-400 bg-slate-50"
+        />
+      </div>
+      <!-- Bulk Action Bar -->
+      <div class="selection-actions">
+        <span class="action-link" onclick="bulkFilterValues(true)"
+          >Select All</span
+        >
+        <span class="action-link" onclick="bulkFilterValues(false)"
+          >Clear All</span
+        >
+      </div>
+      <div id="filter-options-list" class="dropdown-list custom-scroll"></div>
+      <div class="dropdown-footer">
+        <span
+          class="text-[11px] text-slate-400 font-bold"
+          id="filter-count-status"
+          >0 Selected</span
+        >
+        <button
+          onclick="closeFilterDropdown()"
+          class="btn-apply flex items-center gap-2"
+        >
+          <svg
+            class="w-3.5 h-3.5"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"
+            ></path>
+          </svg>
+          Apply
+        </button>
+      </div>
+    </div>
+
+    <script>
+      let rawData = [];
+      let headers = [];
+      let columnFilters = {};
+      let visibleColumns = new Set();
+      let currentSort = { index: -1, dir: "asc" };
+      let activeFilterCol = -1;
+      let dragCounter = 0;
+
+      // 1. Column Bulk Actions
+      function bulkSelectColumns(shouldSelect) {
+        if (shouldSelect) {
+          headers.forEach((_, i) => visibleColumns.add(i));
+        } else {
+          // Keep at least one visible
+          const first = visibleColumns.values().next().value || 0;
+          visibleColumns.clear();
+          visibleColumns.add(first);
+        }
+        renderColumnOptions();
+      }
+
+      // 2. Filter Bulk Actions
+      function bulkFilterValues(shouldSelect) {
+        const uniqueValues = [
+          ...new Set(rawData.slice(1).map((row) => row[activeFilterCol])),
+        ];
+        if (shouldSelect) {
+          uniqueValues.forEach((v) => columnFilters[activeFilterCol].add(v));
+        } else {
+          columnFilters[activeFilterCol].clear();
+        }
+        renderFilterOptions();
+      }
+
+      function toggleColumnDropdown(e) {
+        e.stopPropagation();
+        closeFilterDropdown(false);
+        const dropdown = document.getElementById("column-dropdown");
+        if (dropdown.style.display === "flex") {
+          closeColumnDropdown();
+          return;
+        }
+        document.getElementById("column-search").value = "";
+        renderColumnOptions();
+        dropdown.style.display = "flex";
+        const btn = e.currentTarget.getBoundingClientRect();
+        dropdown.style.top = btn.bottom + 8 + "px";
+        dropdown.style.left = Math.max(10, btn.right - 300) + "px";
+      }
+
+      function renderColumnOptions() {
+        const list = document.getElementById("column-options-list");
+        const search = document
+          .getElementById("column-search")
+          .value.toLowerCase();
+        list.innerHTML = headers
+          .map((h, i) => {
+            const colName = h || "Column " + (i + 1);
+            if (search && !colName.toLowerCase().includes(search)) return "";
+            const isChecked = visibleColumns.has(i) ? "checked" : "";
+            return `<label class="dropdown-option"><input type="checkbox" onchange="toggleColumnVisibility(${i})" ${isChecked} class="w-4 h-4 rounded text-blue-600 focus:ring-0"><span class="truncate">${colName}</span></label>`;
+          })
+          .join("");
+        document.getElementById("col-count-status").textContent =
+          `${visibleColumns.size} Visible`;
+      }
+
+      function toggleColumnVisibility(idx) {
+        if (visibleColumns.has(idx)) {
+          if (visibleColumns.size > 1) visibleColumns.delete(idx);
+        } else {
+          visibleColumns.add(idx);
+        }
+        renderColumnOptions(); // Just update UI, apply happens on Close
+      }
+
+      function closeColumnDropdown() {
+        document.getElementById("column-dropdown").style.display = "none";
+        applyAllFilters();
+      }
+
+      window.addEventListener("dragenter", (e) => {
+        e.preventDefault();
+        dragCounter++;
+        document.body.classList.add("drag-active");
+      });
+      window.addEventListener("dragleave", (e) => {
+        e.preventDefault();
+        dragCounter--;
+        if (dragCounter === 0) document.body.classList.remove("drag-active");
+      });
+      window.addEventListener("dragover", (e) => e.preventDefault());
+      window.addEventListener("drop", (e) => {
+        e.preventDefault();
+        dragCounter = 0;
+        document.body.classList.remove("drag-active");
+        if (e.dataTransfer.files.length > 0)
+          handleFile(e.dataTransfer.files[0]);
+      });
+
+      document.getElementById("drop-zone").onclick = () =>
+        document.getElementById("csv-input").click();
+      document.getElementById("csv-input").onchange = (e) =>
+        handleFile(e.target.files[0]);
+
+      function handleFile(file) {
+        if (!file || !file.name.toLowerCase().endsWith(".csv")) return;
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          const lines = e.target.result
+            .split(/\r?\n/)
+            .filter((l) => l.trim() !== "");
+          rawData = lines.map((line) => {
+            let parts = [],
+              cur = "",
+              inQ = false;
+            for (let char of line) {
+              if (char === '"') inQ = !inQ;
+              else if (char === "," && !inQ) {
+                parts.push(cur.trim());
+                cur = "";
+              } else cur += char;
+            }
+            parts.push(cur.trim());
+            return parts.map((p) => p.replace(/^"|"$/g, ""));
+          });
+          headers = rawData[0];
+          visibleColumns = new Set(headers.map((_, i) => i));
+          resetAllFilters(false);
+          document.getElementById("modal-filename").textContent = file.name;
+          document.getElementById("landing").classList.add("hidden");
+          document.getElementById("modal").classList.remove("hidden");
+          applyAllFilters();
+        };
+        reader.readAsText(file);
+      }
+
+      function isMissing(val) {
+        return (
+          val === null ||
+          val === undefined ||
+          val.toString().trim() === "" ||
+          val.toString().trim() === "-"
+        );
+      }
+
+      function applyAllFilters() {
+        const query = document
+          .getElementById("global-search")
+          .value.toLowerCase();
+        let data = rawData.slice(1);
+        Object.keys(columnFilters).forEach((idx) => {
+          if (columnFilters[idx].size > 0)
+            data = data.filter((row) => columnFilters[idx].has(row[idx]));
+        });
+        if (query)
+          data = data.filter((row) =>
+            row.some((cell) => cell.toString().toLowerCase().includes(query)),
+          );
+
+        if (currentSort.index !== -1) {
+          data.sort((a, b) => {
+            let vA = a[currentSort.index],
+              vB = b[currentSort.index];
+            const nA = parseFloat(vA),
+              nB = parseFloat(vB);
+            if (!isNaN(nA) && !isNaN(nB)) {
+              vA = nA;
+              vB = nB;
+            }
+            return vA < vB
+              ? currentSort.dir === "asc"
+                ? -1
+                : 1
+              : vA > vB
+                ? currentSort.dir === "asc"
+                  ? 1
+                  : -1
+                : 0;
+          });
+        }
+        renderTable(data, query);
+      }
+
+      function renderTable(data, query) {
+        const head = document.getElementById("table-head");
+        const body = document.getElementById("table-body");
+        let headHTML = "<tr>";
+        headers.forEach((h, i) => {
+          if (!visibleColumns.has(i)) return;
+          const isFiltered =
+            columnFilters[i] && columnFilters[i].size > 0
+              ? "filter-active-icon"
+              : "text-slate-300";
+          const sortArrow =
+            currentSort.index === i
+              ? currentSort.dir === "asc"
+                ? "↑"
+                : "↓"
+              : "↕";
+          headHTML += `<th><div class="flex items-center justify-between"><span onclick="toggleSort(${i})" class="flex-grow cursor-pointer">${h} <span class="sort-icon ${currentSort.index === i ? "sort-active" : ""}">${sortArrow}</span></span><button onclick="showFilterDropdown(event, ${i})" class="ml-2 p-1.5 hover:bg-slate-200 rounded-md transition-all ${isFiltered}"><svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20"><path d="M3 3a1 1 0 011-1h12a1 1 0 011 1v3a1 1 0 01-.293.707L12 11.414V15a1 1 0 01-.293.707l-2 2A1 1 0 018 17v-5.586L3.293 6.707A1 1 0 013 6V3z"></path></svg></button></div></th>`;
+        });
+        head.innerHTML = headHTML + "</tr>";
+        body.innerHTML = data
+          .map((row) => {
+            let rowHTML = "<tr>";
+            row.forEach((cell, i) => {
+              if (visibleColumns.has(i))
+                rowHTML += `<td>${highlightText(cell, query)}</td>`;
+            });
+            return rowHTML + "</tr>";
+          })
+          .join("");
+        document.getElementById("footer-stats").textContent =
+          `Total Rows: ${rawData.length - 1} | Matches: ${data.length}`;
+      }
+
+      function highlightText(text, query) {
+        if (!query) return text;
+        const regex = new RegExp(
+          `(${query.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")})`,
+          "gi",
+        );
+        return text
+          .toString()
+          .replace(regex, '<span class="search-highlight">$1</span>');
+      }
+
+      function resetAllFilters(apply = true) {
+        columnFilters = {};
+        headers.forEach((_, i) => (columnFilters[i] = new Set()));
+        document.getElementById("global-search").value = "";
+        currentSort = { index: -1, dir: "asc" };
+        if (apply) applyAllFilters();
+      }
+
+      function toggleSort(i) {
+        if (currentSort.index === i)
+          currentSort.dir = currentSort.dir === "asc" ? "desc" : "asc";
+        else {
+          currentSort.index = i;
+          currentSort.dir = "asc";
+        }
+        applyAllFilters();
+      }
+
+      function showFilterDropdown(e, colIdx) {
+        e.stopPropagation();
+        activeFilterCol = colIdx;
+        const dropdown = document.getElementById("filter-dropdown");
+        const rect = e.currentTarget.getBoundingClientRect();
+        document.getElementById("filter-search").value = "";
+        renderFilterOptions();
+        dropdown.style.display = "flex";
+        dropdown.style.top = rect.bottom + 8 + "px";
+        dropdown.style.left =
+          Math.max(10, Math.min(rect.left - 150, window.innerWidth - 300)) +
+          "px";
+      }
+
+      function renderFilterOptions() {
+        const list = document.getElementById("filter-options-list");
+        const search = document
+          .getElementById("filter-search")
+          .value.toLowerCase();
+        const uniqueValues = [
+          ...new Set(rawData.slice(1).map((row) => row[activeFilterCol])),
+        ].sort();
+        const filtered = uniqueValues.filter((v) =>
+          v.toString().toLowerCase().includes(search),
+        );
+
+        list.innerHTML = filtered
+          .map((val) => {
+            const isChecked = columnFilters[activeFilterCol].has(val)
+              ? "checked"
+              : "";
+            return `<label class="dropdown-option"><input type="checkbox" onchange="toggleFilterValue('${val.toString().replace(/'/g, "\\'")}')" ${isChecked} class="w-4 h-4 rounded text-blue-600"><span class="truncate">${val || "(Blank)"}</span></label>`;
+          })
+          .join("");
+        document.getElementById("filter-count-status").textContent =
+          `${columnFilters[activeFilterCol].size} Selected`;
+      }
+
+      function toggleFilterValue(val) {
+        if (columnFilters[activeFilterCol].has(val))
+          columnFilters[activeFilterCol].delete(val);
+        else columnFilters[activeFilterCol].add(val);
+        document.getElementById("filter-count-status").textContent =
+          `${columnFilters[activeFilterCol].size} Selected`;
+      }
+
+      function openDashboard() {
+        const rows = rawData.slice(1);
+        const totalRows = rows.length;
+        let missingTotal = 0;
+        headers.forEach((h, i) => {
+          missingTotal += rows.map((r) => r[i]).filter(isMissing).length;
+        });
+
+        document.getElementById("dashboard-summary-cards").innerHTML = `
+          <div class="flex items-center gap-1.5"><span class="text-[9px] font-bold text-slate-400 uppercase">Rows:</span><span class="text-xs font-black">${totalRows}</span></div>
+          <div class="flex items-center gap-1.5"><span class="text-[9px] font-bold text-slate-400 uppercase">Cols:</span><span class="text-xs font-black">${headers.length}</span></div>
+          <div class="flex items-center gap-1.5"><span class="text-[9px] font-bold text-slate-400 uppercase text-rose-400">Empty:</span><span class="text-xs font-black text-rose-500">${missingTotal}</span></div>
+        `;
+        const picker = document.getElementById("duplicate-col-picker");
+        picker.innerHTML =
+          `<option value="">-- Select Field --</option>` +
+          headers
+            .map(
+              (h, i) =>
+                `<option value="${i}">${h || "Col " + (i + 1)}</option>`,
+            )
+            .join("");
+        document.getElementById("duplicate-wrapper").classList.add("hidden");
+        document
+          .getElementById("duplicate-placeholder")
+          .classList.remove("hidden");
+        document.getElementById("dashboard-modal").classList.remove("hidden");
+      }
+
+      function toggleGroup(groupId) {
+        const rows = document.querySelectorAll(`[data-group-id="${groupId}"]`);
+        const headerRow = document.getElementById(`header-row-${groupId}`);
+        const isExpanding = headerRow.classList.toggle("expanded");
+        rows.forEach((row) => {
+          row.style.display = isExpanding ? "table-row" : "none";
+        });
+      }
+
+      function detectAndRenderDuplicates() {
+        const colIdx = document.getElementById("duplicate-col-picker").value;
+        const wrapper = document.getElementById("duplicate-wrapper");
+        const placeholder = document.getElementById("duplicate-placeholder");
+        const body = document.getElementById("duplicate-table-body");
+        const head = document.getElementById("duplicate-table-head");
+        const noMsg = document.getElementById("no-duplicates-msg");
+
+        if (colIdx === "") {
+          wrapper.classList.add("hidden");
+          placeholder.classList.remove("hidden");
+          return;
+        }
+        placeholder.classList.add("hidden");
+        wrapper.classList.remove("hidden");
+
+        const rows = rawData.slice(1);
+        const counts = {};
+        rows.forEach((r) => {
+          const val = r[colIdx];
+          if (!isMissing(val)) counts[val] = (counts[val] || 0) + 1;
+        });
+        const duplicates = Object.keys(counts).filter((k) => counts[k] > 1);
+        if (duplicates.length === 0) {
+          body.innerHTML = "";
+          noMsg.classList.remove("hidden");
+          return;
+        }
+        noMsg.classList.add("hidden");
+
+        head.innerHTML = `<tr>${headers.map((h, i) => `<th class="!py-2 px-6 text-[10px] font-black text-slate-400 uppercase bg-white border-b border-slate-200">${h || "Col " + (i + 1)}</th>`).join("")}</tr>`;
+
+        let finalHTML = "";
+        duplicates.sort().forEach((val, idx) => {
+          const groupRows = rows.filter((r) => r[colIdx] === val);
+          const groupId = `group-${idx}`;
+          finalHTML += `
+            <tr id="header-row-${groupId}" class="group-header bg-slate-50" onclick="toggleGroup('${groupId}')">
+              <td colspan="${headers.length}" class="py-3 px-6 text-xs font-black text-slate-800 border-b !border-black/30">
+                <div class="flex items-center gap-3">
+                  <svg class="w-4 h-4 text-slate-400 chevron-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="3" d="M9 5l7 7-7 7"></path></svg>
+                  <span>${val}</span> <span class="ml-auto bg-blue-100 text-blue-700 px-2.5 py-0.5 rounded-full text-[10px]">${groupRows.length} RECORDS</span>
+                </div>
+              </td>
+            </tr>
+          `;
+          groupRows.forEach((row) => {
+            finalHTML += `
+              <tr data-group-id="${groupId}" class="hidden-row bg-white hover:bg-slate-50 transition-colors">
+                ${row.map((cell, i) => `<td class="py-2.5 px-6 border-b border-slate-100 truncate ${i == colIdx ? "font-bold text-blue-600 bg-blue-50/20" : "text-slate-600"}">${cell}</td>`).join("")}
+              </tr>
+            `;
+          });
+        });
+        body.innerHTML = finalHTML;
+      }
+
+      function closeDashboard() {
+        document.getElementById("dashboard-modal").classList.add("hidden");
+      }
+      function closeFilterDropdown(apply = true) {
+        document.getElementById("filter-dropdown").style.display = "none";
+        if (apply) applyAllFilters();
+      }
+      function closeModal() {
+        document.getElementById("modal").classList.add("hidden");
+        document.getElementById("landing").classList.remove("hidden");
+      }
+
+      document.getElementById("btn-export").onclick = () => {
+        const filteredData = rawData.map((row) =>
+          row.filter((_, i) => visibleColumns.has(i)),
+        );
+        const ws = XLSX.utils.aoa_to_sheet(filteredData);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "DataForge");
+        XLSX.writeFile(wb, "DataForge_Export.xlsx");
+      };
+
+      window.onclick = (e) => {
+        if (
+          !document.getElementById("filter-dropdown").contains(e.target) &&
+          !e.target.closest("button")
+        )
+          closeFilterDropdown(false);
+        if (
+          !document.getElementById("column-dropdown").contains(e.target) &&
+          !e.target.closest("#column-selector-btn")
+        )
+          closeColumnDropdown();
+      };
+      window.onkeydown = (e) => {
+        if (e.key === "Escape") {
+          closeFilterDropdown();
+          closeColumnDropdown();
+          closeDashboard();
+          closeModal();
+        }
+      };
+    </script>
+  </body>
+</html>
