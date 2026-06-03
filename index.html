@@ -12,7 +12,7 @@
       href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap"
       rel="stylesheet"
     />
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
     <style>
       body {
         font-family: "Inter", sans-serif;
@@ -124,9 +124,9 @@
       }
       .copy-toast {
         position: fixed;
-        top: 18px;
+        bottom: 18px;
         left: 50%;
-        transform: translateX(-50%) translateY(-6px);
+        transform: translateX(-50%) translateY(6px);
         padding: 6px 10px;
         border-radius: 999px;
         background: rgba(15, 23, 42, 0.92);
@@ -633,6 +633,25 @@
           >
             <option value="">-- Select Field --</option>
           </select>
+          <button
+            id="btn-group-export"
+            class="bg-cyan-600 text-white px-3 py-1.5 rounded-md text-xs font-bold hover:bg-cyan-700 flex items-center gap-1.5 transition-colors"
+          >
+            <svg
+              class="w-3.5 h-3.5"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
+              ></path>
+            </svg>
+            Export Grouped
+          </button>
         </div>
         <button
           onclick="closeGroupingModal()"
@@ -1342,6 +1361,29 @@
         });
       }
 
+      function getGroupedRowsByColumn(colIdx) {
+        const rows = rawData.slice(1);
+        const grouped = {};
+
+        rows.forEach((row) => {
+          const rawValue = row[colIdx];
+          const groupKey = isMissing(rawValue) ? "(Blank)" : String(rawValue);
+          if (!grouped[groupKey]) grouped[groupKey] = [];
+          grouped[groupKey].push(row);
+        });
+
+        const groupKeys = Object.keys(grouped).sort((a, b) => {
+          if (a === "(Blank)" && b !== "(Blank)") return 1;
+          if (b === "(Blank)" && a !== "(Blank)") return -1;
+          return a.localeCompare(b, undefined, {
+            numeric: true,
+            sensitivity: "base",
+          });
+        });
+
+        return { grouped, groupKeys };
+      }
+
       function detectAndRenderGroups() {
         const colIdx = document.getElementById("group-col-picker").value;
         const wrapper = document.getElementById("group-wrapper");
@@ -1363,19 +1405,7 @@
         placeholder.classList.add("hidden");
         wrapper.classList.remove("hidden");
 
-        const rows = rawData.slice(1);
-        const grouped = {};
-
-        rows.forEach((row) => {
-          const rawValue = row[colIdx];
-          const groupKey = isMissing(rawValue) ? "(Blank)" : String(rawValue);
-          if (!grouped[groupKey]) grouped[groupKey] = [];
-          grouped[groupKey].push(row);
-        });
-
-        const groupKeys = Object.keys(grouped).sort((a, b) =>
-          a.localeCompare(b, undefined, { numeric: true, sensitivity: "base" }),
-        );
+        const { grouped, groupKeys } = getGroupedRowsByColumn(Number(colIdx));
 
         if (groupKeys.length === 0) {
           body.innerHTML = "";
@@ -1429,14 +1459,96 @@
         document.getElementById("landing").classList.remove("hidden");
       }
 
+      function getExcelHeaderStyle() {
+        return {
+          font: { bold: true, color: { rgb: "FFFFFF" } },
+          fill: { fgColor: { rgb: "0F766E" } },
+          alignment: { horizontal: "center", vertical: "center" },
+        };
+      }
+
+      function getExcelGroupStyle() {
+        return {
+          font: { bold: true, color: { rgb: "0E7490" } },
+          fill: { fgColor: { rgb: "CFFAFE" } },
+          alignment: { horizontal: "left", vertical: "center" },
+        };
+      }
+
+      function applyRowStyle(ws, rowIndex, colCount, style) {
+        for (let col = 0; col < colCount; col += 1) {
+          const cellAddress = XLSX.utils.encode_cell({ r: rowIndex, c: col });
+          if (!ws[cellAddress]) ws[cellAddress] = { t: "s", v: "" };
+          ws[cellAddress].s = style;
+        }
+      }
+
       document.getElementById("btn-export").onclick = () => {
         const filteredData = rawData.map((row) =>
           row.filter((_, i) => visibleColumns.has(i)),
         );
         const ws = XLSX.utils.aoa_to_sheet(filteredData);
+        if (filteredData.length > 0) {
+          applyRowStyle(ws, 0, filteredData[0].length, getExcelHeaderStyle());
+        }
         const wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, ws, "DataForge");
         XLSX.writeFile(wb, "DataForge_Export.xlsx");
+      };
+
+      document.getElementById("btn-group-export").onclick = () => {
+        const colIdx = document.getElementById("group-col-picker").value;
+        if (colIdx === "") {
+          showToast("Warning: Select a grouping column before export.", {
+            warning: true,
+            duration: 3200,
+          });
+          return;
+        }
+
+        const selectedColIdx = Number(colIdx);
+        const selectedGroupColumnName =
+          headers[selectedColIdx] || `Column ${selectedColIdx + 1}`;
+        const { grouped, groupKeys } = getGroupedRowsByColumn(selectedColIdx);
+        const aoa = [headers];
+        const merges = [];
+        const groupHeaderRows = [];
+
+        groupKeys.forEach((groupKey) => {
+          const groupHeaderRowIndex = aoa.length;
+          groupHeaderRows.push(groupHeaderRowIndex);
+          const groupHeaderRow = new Array(headers.length).fill("");
+          groupHeaderRow[0] = `${selectedGroupColumnName}: ${groupKey} (${grouped[groupKey].length} records)`;
+          aoa.push(groupHeaderRow);
+          if (headers.length > 1) {
+            merges.push({
+              s: { r: groupHeaderRowIndex, c: 0 },
+              e: { r: groupHeaderRowIndex, c: headers.length - 1 },
+            });
+          }
+          grouped[groupKey].forEach((row) => aoa.push(row));
+        });
+
+        const ws = XLSX.utils.aoa_to_sheet(aoa);
+        if (merges.length) ws["!merges"] = merges;
+        if (headers.length > 0) {
+          applyRowStyle(ws, 0, headers.length, getExcelHeaderStyle());
+          groupHeaderRows.forEach((rowIndex) => {
+            applyRowStyle(ws, rowIndex, headers.length, getExcelGroupStyle());
+          });
+        }
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "GroupedData");
+
+        const safeColName = String(
+          headers[selectedColIdx] || `Column_${selectedColIdx + 1}`,
+        )
+          .replace(/[\\/:*?"<>|]+/g, "_")
+          .trim();
+        const fileName = `Grouped_${safeColName || "Column"}.xlsx`;
+
+        XLSX.writeFile(wb, fileName);
+        showToast("Grouped Excel exported.", { duration: 2600 });
       };
 
       window.onclick = (e) => {
