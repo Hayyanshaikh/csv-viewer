@@ -84,8 +84,9 @@
       }
       .cell-value {
         display: block;
-        overflow: hidden;
-        text-overflow: ellipsis;
+        overflow: visible;
+        text-overflow: clip;
+        white-space: nowrap;
       }
       .cell-copy-btn {
         position: absolute;
@@ -124,7 +125,8 @@
       .copy-toast {
         position: fixed;
         top: 18px;
-        right: 18px;
+        left: 50%;
+        transform: translateX(-50%) translateY(-6px);
         padding: 6px 10px;
         border-radius: 999px;
         background: rgba(15, 23, 42, 0.92);
@@ -134,7 +136,6 @@
         letter-spacing: 0.02em;
         box-shadow: 0 10px 30px rgba(15, 23, 42, 0.18);
         opacity: 0;
-        transform: translateY(-6px);
         pointer-events: none;
         transition:
           opacity 0.18s ease,
@@ -143,7 +144,10 @@
       }
       .copy-toast.show {
         opacity: 1;
-        transform: translateY(0);
+        transform: translateX(-50%) translateY(0);
+      }
+      .copy-toast.warning {
+        background: rgba(146, 64, 14, 0.95);
       }
       /* tr:nth-child(even) {
         background-color: #f8fafc;
@@ -295,6 +299,72 @@
       .expanded .chevron-icon {
         transform: rotate(90deg);
       }
+
+      .landing-shell {
+        position: relative;
+        overflow: hidden;
+        background:
+          radial-gradient(circle at 18% 24%, #cffafe 0%, transparent 36%),
+          radial-gradient(circle at 82% 18%, #dbeafe 0%, transparent 38%),
+          radial-gradient(circle at 50% 110%, #e2e8f0 0%, transparent 52%),
+          linear-gradient(155deg, #f8fafc 0%, #eef2ff 45%, #f8fafc 100%);
+      }
+      .landing-glow {
+        position: absolute;
+        width: 380px;
+        height: 380px;
+        filter: blur(44px);
+        opacity: 0.45;
+        border-radius: 50%;
+        animation: floatDrift 9s ease-in-out infinite;
+        pointer-events: none;
+      }
+      .landing-glow.one {
+        top: -120px;
+        left: -90px;
+        background: #67e8f9;
+      }
+      .landing-glow.two {
+        bottom: -140px;
+        right: -110px;
+        background: #60a5fa;
+        animation-delay: -3s;
+      }
+      .landing-panel {
+        position: relative;
+        border: 1px solid rgba(148, 163, 184, 0.25);
+        background: rgba(255, 255, 255, 0.88);
+        box-shadow:
+          0 24px 70px rgba(15, 23, 42, 0.1),
+          inset 0 1px 0 rgba(255, 255, 255, 0.85);
+        backdrop-filter: blur(8px);
+      }
+      .landing-dropzone {
+        border: 1px dashed #93c5fd;
+        background: linear-gradient(
+          180deg,
+          rgba(255, 255, 255, 0.9),
+          rgba(239, 246, 255, 0.92)
+        );
+        transition:
+          border-color 0.2s ease,
+          transform 0.2s ease,
+          box-shadow 0.2s ease;
+      }
+      .landing-dropzone:hover {
+        border-color: #2563eb;
+        transform: translateY(-2px);
+        box-shadow: 0 16px 30px rgba(37, 99, 235, 0.14);
+      }
+      @keyframes floatDrift {
+        0%,
+        100% {
+          transform: translate3d(0, 0, 0);
+        }
+        50% {
+          transform: translate3d(0, 14px, 0);
+        }
+      }
     </style>
   </head>
   <body class="text-slate-900">
@@ -326,40 +396,57 @@
     <!-- Landing View -->
     <div
       id="landing"
-      class="flex h-screen items-center justify-center bg-white px-6"
+      class="landing-shell flex h-screen items-center justify-center px-6"
     >
-      <div class="w-full max-w-md text-center">
-        <h1 class="text-2xl font-semibold text-slate-800 mb-2">CSV Viewer</h1>
+      <div class="landing-glow one"></div>
+      <div class="landing-glow two"></div>
 
-        <p class="text-sm text-slate-400 mb-10">Simple data preview</p>
-
-        <div
-          id="drop-zone"
-          class="border border-slate-200 rounded-2xl p-12 cursor-pointer hover:border-blue-400 hover:bg-blue-50/20 transition group"
-        >
-          <input type="file" id="csv-input" accept=".csv" class="hidden" />
-
-          <!-- Modern Icon -->
+      <div class="w-full max-w-2xl relative z-10">
+        <div class="landing-panel rounded-3xl p-8 sm:p-10 text-center">
           <div
-            class="w-14 h-14 mx-auto mb-4 flex items-center justify-center rounded-xl bg-slate-100 text-slate-500 group-hover:bg-blue-100 group-hover:text-blue-500 transition"
+            class="inline-flex items-center gap-2 rounded-full border border-cyan-200/70 bg-cyan-50/80 px-4 py-1 text-[11px] font-bold uppercase tracking-wider text-cyan-700"
           >
-            <svg
-              class="w-7 h-7"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                d="M12 16V4m0 0l-4 4m4-4l4 4M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2"
-                stroke-width="2"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-              />
-            </svg>
+            Smart Import
           </div>
 
-          <p class="text-slate-600 text-sm font-medium">Upload CSV</p>
-          <p class="text-xs text-slate-400 mt-1">Drag & drop ya click karo</p>
+          <h1 class="text-3xl sm:text-4xl font-black text-slate-800 mt-5">
+            CSV Viewer
+          </h1>
+          <p class="text-sm sm:text-base text-slate-500 mt-3 max-w-xl mx-auto">
+            Drop your CSV file and instantly explore your data with clean
+            tables, filters, grouping, and export tools.
+          </p>
+
+          <div
+            id="drop-zone"
+            class="landing-dropzone mt-8 rounded-2xl p-10 sm:p-12 cursor-pointer group"
+          >
+            <input type="file" id="csv-input" accept=".csv" class="hidden" />
+
+            <div
+              class="w-16 h-16 mx-auto mb-4 flex items-center justify-center rounded-2xl bg-slate-100 text-slate-500 group-hover:bg-blue-100 group-hover:text-blue-600 transition"
+            >
+              <svg
+                class="w-8 h-8"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  d="M12 16V4m0 0l-4 4m4-4l4 4M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                />
+              </svg>
+            </div>
+
+            <p class="text-slate-700 text-base font-bold">Upload CSV File</p>
+            <p class="text-xs sm:text-sm text-slate-500 mt-1">
+              Drag and drop or click to select a file
+            </p>
+            <p class="text-[11px] text-slate-400 mt-3">Supported: .csv</p>
+          </div>
         </div>
       </div>
     </div>
@@ -403,8 +490,8 @@
           </div>
           <div class="flex items-center gap-2">
             <button
-              onclick="openDashboard()"
-              class="bg-indigo-600 text-white px-4 py-2 rounded-md text-sm font-bold hover:bg-indigo-700 flex items-center gap-2 transition-colors shadow-lg shadow-indigo-100"
+              onclick="openGroupingModal()"
+              class="bg-cyan-600 text-white px-3 py-1.5 rounded-md text-xs font-bold hover:bg-cyan-700 flex items-center gap-1.5 transition-colors"
             >
               <svg
                 class="w-4 h-4"
@@ -416,14 +503,14 @@
                   stroke-linecap="round"
                   stroke-linejoin="round"
                   stroke-width="2"
-                  d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
+                  d="M4 6h16M4 12h16M4 18h16m-4-3v6m-8-9v9"
                 ></path>
               </svg>
-              Analytics
+              Group
             </button>
             <button
               id="btn-export"
-              class="bg-emerald-600 text-white px-4 py-2 rounded-md text-sm font-bold hover:bg-emerald-700 shadow-lg shadow-emerald-100 flex items-center gap-2"
+              class="bg-emerald-600 text-white px-3 py-1.5 rounded-md text-xs font-bold hover:bg-emerald-700 flex items-center gap-1.5 transition-colors"
             >
               <svg
                 class="w-4 h-4"
@@ -487,7 +574,7 @@
       </div>
 
       <div class="flex-grow overflow-auto custom-scroll relative bg-white">
-        <table class="w-full text-left border-collapse min-w-full">
+        <table class="w-max min-w-full text-left border-collapse">
           <thead id="table-head"></thead>
           <tbody id="table-body"></tbody>
         </table>
@@ -506,10 +593,10 @@
       </div>
     </div>
 
-    <!-- Analytics Dashboard -->
+    <!-- Grouping Modal -->
     <div
-      id="dashboard-modal"
-      class="fixed inset-0 bg-white z-[200] hidden flex flex-col modal-enter"
+      id="grouping-modal"
+      class="fixed inset-0 bg-white z-[210] hidden flex flex-col modal-enter"
     >
       <div
         class="px-6 py-3 border-b border-slate-100 flex items-center justify-between bg-white"
@@ -519,7 +606,7 @@
             class="text-lg font-black text-slate-800 tracking-tight flex items-center gap-2"
           >
             <svg
-              class="w-5 h-5 text-indigo-600"
+              class="w-5 h-5 text-cyan-600"
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
@@ -528,27 +615,27 @@
                 stroke-linecap="round"
                 stroke-linejoin="round"
                 stroke-width="2"
-                d="M16 8v8m-4-5v5m-4-2v2m-2 4h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
+                d="M4 6h16M4 12h16M4 18h16m-4-3v6m-8-9v9"
               ></path>
             </svg>
-            Duplicate Discovery:
+            Group Explorer:
           </h2>
           <div
-            id="dashboard-summary-cards"
+            id="grouping-summary-cards"
             class="flex gap-4 border-l pl-4 border-slate-100"
           ></div>
 
           <p class="text-[10px] text-slate-400 italic">Select a column</p>
           <select
-            id="duplicate-col-picker"
-            onchange="detectAndRenderDuplicates()"
-            class="text-[11px] font-bold bg-white border border-slate-200 rounded-lg px-3 py-1 outline-none focus:border-indigo-500 transition-all"
+            id="group-col-picker"
+            onchange="detectAndRenderGroups()"
+            class="text-[11px] font-bold bg-white border border-slate-200 rounded-lg px-3 py-1 outline-none focus:border-cyan-500 transition-all"
           >
             <option value="">-- Select Field --</option>
           </select>
         </div>
         <button
-          onclick="closeDashboard()"
+          onclick="closeGroupingModal()"
           class="p-2 hover:bg-slate-100 rounded-full transition-colors text-slate-400"
         >
           <svg
@@ -569,32 +656,30 @@
 
       <div class="flex-grow overflow-hidden bg-white flex flex-col">
         <div
-          id="duplicate-wrapper"
+          id="group-wrapper"
           class="flex-grow overflow-hidden hidden flex flex-col"
         >
           <div
-            id="duplicate-data-container"
+            id="group-data-container"
             class="overflow-auto flex-grow custom-scroll"
           >
-            <table
-              class="w-full text-left border-collapse min-w-full table-fixed"
-            >
+            <table class="w-max min-w-full text-left border-collapse">
               <thead
-                id="duplicate-table-head"
+                id="group-table-head"
                 class="bg-white border-b border-slate-200 sticky top-0 z-30"
               ></thead>
-              <tbody id="duplicate-table-body" class="text-sm"></tbody>
+              <tbody id="group-table-body" class="text-sm"></tbody>
             </table>
           </div>
           <div
-            id="no-duplicates-msg"
+            id="no-groups-msg"
             class="p-20 text-center text-slate-400 hidden italic"
           >
-            No duplicate groups found in this column.
+            No groups found for this column.
           </div>
         </div>
         <div
-          id="duplicate-placeholder"
+          id="group-placeholder"
           class="flex-grow flex items-center justify-center text-slate-300"
         >
           <div class="text-center">
@@ -608,12 +693,10 @@
                 stroke-linecap="round"
                 stroke-linejoin="round"
                 stroke-width="2"
-                d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"
+                d="M4 6h16M4 12h16M4 18h16m-4-3v6m-8-9v9"
               ></path>
             </svg>
-            <p class="font-bold text-sm">
-              Select a column to analyze duplicates
-            </p>
+            <p class="font-bold text-sm">Select a column to group rows</p>
           </div>
         </div>
       </div>
@@ -725,6 +808,140 @@
       let currentSort = { index: -1, dir: "asc" };
       let activeFilterCol = -1;
       let dragCounter = 0;
+      const VIEW_STATE_KEY = "csvviewer:viewState:v1";
+      let isRestoringState = false;
+      let preferredGroupColumnName = null;
+
+      function getColumnNameByIndex(i) {
+        return headers[i] || "Column " + (i + 1);
+      }
+
+      function findColumnIndexByName(name) {
+        return headers.findIndex((h, i) => getColumnNameByIndex(i) === name);
+      }
+
+      function readSavedViewState() {
+        try {
+          const raw = localStorage.getItem(VIEW_STATE_KEY);
+          if (!raw) return null;
+          const parsed = JSON.parse(raw);
+          return parsed && typeof parsed === "object" ? parsed : null;
+        } catch (error) {
+          return null;
+        }
+      }
+
+      function clearSavedViewState() {
+        try {
+          localStorage.removeItem(VIEW_STATE_KEY);
+        } catch (error) {
+          // Ignore storage errors in private/restricted contexts.
+        }
+      }
+
+      function saveViewState() {
+        if (isRestoringState || headers.length === 0) return;
+        try {
+          const filterByColumnName = {};
+          Object.keys(columnFilters).forEach((idx) => {
+            const colIdx = Number(idx);
+            if (!Number.isInteger(colIdx) || !headers[colIdx]) return;
+            const values = [...(columnFilters[colIdx] || [])];
+            if (values.length > 0)
+              filterByColumnName[getColumnNameByIndex(colIdx)] = values;
+          });
+
+          const sortColumnName =
+            currentSort.index >= 0
+              ? getColumnNameByIndex(currentSort.index)
+              : null;
+
+          const picker = document.getElementById("group-col-picker");
+          let groupColumnName = preferredGroupColumnName;
+          if (picker && picker.value !== "") {
+            groupColumnName = getColumnNameByIndex(Number(picker.value));
+          }
+
+          const payload = {
+            searchQuery: document.getElementById("global-search").value || "",
+            sort: {
+              columnName: sortColumnName,
+              dir: currentSort.dir === "desc" ? "desc" : "asc",
+            },
+            visibleColumnNames: [...visibleColumns]
+              .sort((a, b) => a - b)
+              .map((i) => getColumnNameByIndex(i)),
+            filterByColumnName,
+            groupColumnName: groupColumnName || null,
+          };
+
+          localStorage.setItem(VIEW_STATE_KEY, JSON.stringify(payload));
+        } catch (error) {
+          // Ignore storage quota or serialization errors.
+        }
+      }
+
+      function applySavedViewStateToCurrentCsv() {
+        const saved = readSavedViewState();
+        if (!saved) return false;
+
+        isRestoringState = true;
+        let hasApplied = false;
+
+        if (typeof saved.searchQuery === "string") {
+          document.getElementById("global-search").value = saved.searchQuery;
+          hasApplied = hasApplied || saved.searchQuery.length > 0;
+        }
+
+        if (
+          Array.isArray(saved.visibleColumnNames) &&
+          saved.visibleColumnNames.length
+        ) {
+          const nextVisible = new Set();
+          saved.visibleColumnNames.forEach((name) => {
+            const idx = findColumnIndexByName(name);
+            if (idx !== -1) nextVisible.add(idx);
+          });
+          if (nextVisible.size > 0) {
+            visibleColumns = nextVisible;
+            hasApplied = true;
+          }
+        }
+
+        if (saved.sort && saved.sort.columnName) {
+          const idx = findColumnIndexByName(saved.sort.columnName);
+          if (idx !== -1) {
+            currentSort = {
+              index: idx,
+              dir: saved.sort.dir === "desc" ? "desc" : "asc",
+            };
+            hasApplied = true;
+          }
+        }
+
+        if (
+          saved.filterByColumnName &&
+          typeof saved.filterByColumnName === "object"
+        ) {
+          Object.keys(saved.filterByColumnName).forEach((columnName) => {
+            const idx = findColumnIndexByName(columnName);
+            if (idx === -1) return;
+            const values = saved.filterByColumnName[columnName];
+            if (!Array.isArray(values) || values.length === 0) return;
+            columnFilters[idx] = new Set(values);
+            hasApplied = true;
+          });
+        }
+
+        preferredGroupColumnName =
+          typeof saved.groupColumnName === "string"
+            ? saved.groupColumnName
+            : null;
+        if (preferredGroupColumnName) hasApplied = true;
+
+        isRestoringState = false;
+        return hasApplied;
+      }
 
       // 1. Column Bulk Actions
       function bulkSelectColumns(shouldSelect) {
@@ -846,11 +1063,18 @@
           });
           headers = rawData[0];
           visibleColumns = new Set(headers.map((_, i) => i));
-          resetAllFilters(false);
+          resetAllFilters(false, false);
+          const restoredFromLocalStorage = applySavedViewStateToCurrentCsv();
           document.getElementById("modal-filename").textContent = file.name;
           document.getElementById("landing").classList.add("hidden");
           document.getElementById("modal").classList.remove("hidden");
           applyAllFilters();
+          if (restoredFromLocalStorage) {
+            showToast(
+              "Warning: Previous view settings were restored. Use Clear Filters to reset local storage.",
+              { warning: true, duration: 4200 },
+            );
+          }
         };
         reader.readAsText(file);
       }
@@ -900,6 +1124,7 @@
           });
         }
         renderTable(data, query);
+        saveViewState();
       }
 
       function renderTable(data, query) {
@@ -988,20 +1213,33 @@
         }
       }
 
-      function showCopyToast() {
+      function showToast(message, options = {}) {
         const toast = document.getElementById("copy-toast");
+        const duration = Number(options.duration) || 3000;
+        const isWarning = Boolean(options.warning);
+
+        toast.textContent = message;
+        toast.classList.toggle("warning", isWarning);
         toast.classList.add("show");
-        window.clearTimeout(showCopyToast._timer);
-        showCopyToast._timer = window.setTimeout(() => {
+
+        window.clearTimeout(showToast._timer);
+        showToast._timer = window.setTimeout(() => {
           toast.classList.remove("show");
-        }, 900);
+          toast.classList.remove("warning");
+        }, duration);
       }
 
-      function resetAllFilters(apply = true) {
+      function showCopyToast() {
+        showToast("Copied", { duration: 3000 });
+      }
+
+      function resetAllFilters(apply = true, clearSavedState = true) {
         columnFilters = {};
         headers.forEach((_, i) => (columnFilters[i] = new Set()));
         document.getElementById("global-search").value = "";
         currentSort = { index: -1, dir: "asc" };
+        preferredGroupColumnName = null;
+        if (clearSavedState) clearSavedViewState();
         if (apply) applyAllFilters();
       }
 
@@ -1061,33 +1299,38 @@
           `${columnFilters[activeFilterCol].size} Selected`;
       }
 
-      function openDashboard() {
+      function openGroupingModal() {
         const rows = rawData.slice(1);
-        const totalRows = rows.length;
-        let missingTotal = 0;
-        headers.forEach((h, i) => {
-          missingTotal += rows.map((r) => r[i]).filter(isMissing).length;
-        });
 
-        document.getElementById("dashboard-summary-cards").innerHTML = `
-          <div class="flex items-center gap-1.5"><span class="text-[9px] font-bold text-slate-400 uppercase">Rows:</span><span class="text-xs font-black">${totalRows}</span></div>
+        document.getElementById("grouping-summary-cards").innerHTML = `
+          <div class="flex items-center gap-1.5"><span class="text-[9px] font-bold text-slate-400 uppercase">Rows:</span><span class="text-xs font-black">${rows.length}</span></div>
           <div class="flex items-center gap-1.5"><span class="text-[9px] font-bold text-slate-400 uppercase">Cols:</span><span class="text-xs font-black">${headers.length}</span></div>
-          <div class="flex items-center gap-1.5"><span class="text-[9px] font-bold text-slate-400 uppercase text-rose-400">Empty:</span><span class="text-xs font-black text-rose-500">${missingTotal}</span></div>
+          <div class="flex items-center gap-1.5"><span class="text-[9px] font-bold text-slate-400 uppercase text-cyan-500">Mode:</span><span class="text-xs font-black text-cyan-600">Grouping</span></div>
         `;
-        const picker = document.getElementById("duplicate-col-picker");
+
+        const picker = document.getElementById("group-col-picker");
         picker.innerHTML =
           `<option value="">-- Select Field --</option>` +
           headers
             .map(
               (h, i) =>
-                `<option value="${i}">${h || "Col " + (i + 1)}</option>`,
+                `<option value="${i}">${escapeHtml(h || "Col " + (i + 1))}</option>`,
             )
             .join("");
-        document.getElementById("duplicate-wrapper").classList.add("hidden");
-        document
-          .getElementById("duplicate-placeholder")
-          .classList.remove("hidden");
-        document.getElementById("dashboard-modal").classList.remove("hidden");
+
+        if (preferredGroupColumnName) {
+          const preferredIdx = findColumnIndexByName(preferredGroupColumnName);
+          if (preferredIdx !== -1) picker.value = String(preferredIdx);
+        }
+
+        document.getElementById("group-wrapper").classList.add("hidden");
+        document.getElementById("group-placeholder").classList.remove("hidden");
+        document.getElementById("no-groups-msg").classList.add("hidden");
+        document.getElementById("group-table-head").innerHTML = "";
+        document.getElementById("group-table-body").innerHTML = "";
+
+        document.getElementById("grouping-modal").classList.remove("hidden");
+        if (picker.value !== "") detectAndRenderGroups();
       }
 
       function toggleGroup(groupId) {
@@ -1099,71 +1342,89 @@
         });
       }
 
-      function detectAndRenderDuplicates() {
-        const colIdx = document.getElementById("duplicate-col-picker").value;
-        const wrapper = document.getElementById("duplicate-wrapper");
-        const placeholder = document.getElementById("duplicate-placeholder");
-        const body = document.getElementById("duplicate-table-body");
-        const head = document.getElementById("duplicate-table-head");
-        const noMsg = document.getElementById("no-duplicates-msg");
+      function detectAndRenderGroups() {
+        const colIdx = document.getElementById("group-col-picker").value;
+        const wrapper = document.getElementById("group-wrapper");
+        const placeholder = document.getElementById("group-placeholder");
+        const body = document.getElementById("group-table-body");
+        const head = document.getElementById("group-table-head");
+        const noMsg = document.getElementById("no-groups-msg");
 
         if (colIdx === "") {
+          preferredGroupColumnName = null;
           wrapper.classList.add("hidden");
           placeholder.classList.remove("hidden");
+          saveViewState();
           return;
         }
+
+        preferredGroupColumnName = getColumnNameByIndex(Number(colIdx));
+
         placeholder.classList.add("hidden");
         wrapper.classList.remove("hidden");
 
         const rows = rawData.slice(1);
-        const counts = {};
-        rows.forEach((r) => {
-          const val = r[colIdx];
-          if (!isMissing(val)) counts[val] = (counts[val] || 0) + 1;
+        const grouped = {};
+
+        rows.forEach((row) => {
+          const rawValue = row[colIdx];
+          const groupKey = isMissing(rawValue) ? "(Blank)" : String(rawValue);
+          if (!grouped[groupKey]) grouped[groupKey] = [];
+          grouped[groupKey].push(row);
         });
-        const duplicates = Object.keys(counts).filter((k) => counts[k] > 1);
-        if (duplicates.length === 0) {
+
+        const groupKeys = Object.keys(grouped).sort((a, b) =>
+          a.localeCompare(b, undefined, { numeric: true, sensitivity: "base" }),
+        );
+
+        if (groupKeys.length === 0) {
           body.innerHTML = "";
+          head.innerHTML = "";
           noMsg.classList.remove("hidden");
           return;
         }
-        noMsg.classList.add("hidden");
 
-        head.innerHTML = `<tr>${headers.map((h, i) => `<th class="!py-2 px-6 text-[10px] font-black text-slate-400 uppercase bg-white border-b border-slate-200">${h || "Col " + (i + 1)}</th>`).join("")}</tr>`;
+        noMsg.classList.add("hidden");
+        head.innerHTML = `<tr>${headers.map((h, i) => `<th class="!py-2 px-6 text-[10px] font-black text-slate-400 uppercase bg-white border-b border-slate-200">${escapeHtml(h || "Col " + (i + 1))}</th>`).join("")}</tr>`;
 
         let finalHTML = "";
-        duplicates.sort().forEach((val, idx) => {
-          const groupRows = rows.filter((r) => r[colIdx] === val);
-          const groupId = `group-${idx}`;
+        groupKeys.forEach((val, idx) => {
+          const groupRows = grouped[val];
+          const groupId = `grp-group-${idx}`;
           finalHTML += `
-            <tr id="header-row-${groupId}" class="group-header bg-slate-50" onclick="toggleGroup('${groupId}')">
+            <tr id="header-row-${groupId}" class="group-header bg-cyan-50/40" onclick="toggleGroup('${groupId}')">
               <td colspan="${headers.length}" class="py-3 px-6 text-xs font-black text-slate-800 border-b !border-black/10">
                 <div class="flex items-center gap-3">
-                  <svg class="w-4 h-4 text-slate-400 chevron-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="3" d="M9 5l7 7-7 7"></path></svg>
-                  <span>${val}</span> <span class="ml-auto bg-blue-100 text-blue-700 px-2.5 py-0.5 rounded-full text-[10px]">${groupRows.length} RECORDS</span>
+                  <svg class="w-4 h-4 text-cyan-500 chevron-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="3" d="M9 5l7 7-7 7"></path></svg>
+                  <span>${escapeHtml(val)}</span>
+                  <span class="ml-auto sticky right-6 bg-cyan-100 text-cyan-700 px-2.5 py-0.5 rounded-full text-[10px]">${groupRows.length} RECORDS</span>
                 </div>
               </td>
             </tr>
           `;
+
           groupRows.forEach((row) => {
             finalHTML += `
-              <tr data-group-id="${groupId}" class="hidden-row bg-white hover:bg-slate-50 transition-colors">
-                ${row.map((cell, i) => `<td class="py-2.5 px-6 border-b border-slate-100 truncate ${i == colIdx ? "font-bold text-blue-600 bg-blue-50/20" : "text-slate-600"}">${cell}</td>`).join("")}
+              <tr data-group-id="${groupId}" class="hidden-row bg-white hover:bg-cyan-50/20 transition-colors">
+                ${row.map((cell, i) => `<td class="py-2.5 px-6 border-b border-slate-100 ${i == colIdx ? "font-bold text-cyan-700 bg-cyan-50/30" : "text-slate-600"}">${escapeHtml(cell)}</td>`).join("")}
               </tr>
             `;
           });
         });
+
         body.innerHTML = finalHTML;
+        saveViewState();
       }
 
-      function closeDashboard() {
-        document.getElementById("dashboard-modal").classList.add("hidden");
+      function closeGroupingModal() {
+        document.getElementById("grouping-modal").classList.add("hidden");
       }
       function closeFilterDropdown(apply = true) {
         document.getElementById("filter-dropdown").style.display = "none";
         if (apply) applyAllFilters();
       }
       function closeModal() {
+        closeGroupingModal();
         document.getElementById("modal").classList.add("hidden");
         document.getElementById("landing").classList.remove("hidden");
       }
@@ -1194,7 +1455,7 @@
         if (e.key === "Escape") {
           closeFilterDropdown();
           closeColumnDropdown();
-          closeDashboard();
+          closeGroupingModal();
           closeModal();
         }
       };
