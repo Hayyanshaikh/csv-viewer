@@ -76,6 +76,75 @@
         color: #334155;
         border-bottom: 1px solid #f1f5f9;
       }
+      .table-cell {
+        position: relative;
+        padding-right: 32px;
+        width: 100%;
+        display: block !important;
+      }
+      .cell-value {
+        display: block;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .cell-copy-btn {
+        position: absolute;
+        top: 50%;
+        right: 0;
+        transform: translateY(-50%);
+        width: 24px;
+        height: 24px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 6px;
+        color: #64748b;
+        opacity: 0;
+        pointer-events: none;
+        transition:
+          opacity 0.15s ease,
+          background-color 0.15s ease,
+          color 0.15s ease;
+      }
+      .table-cell:hover .cell-copy-btn,
+      .table-cell:focus-within .cell-copy-btn {
+        opacity: 1;
+        pointer-events: auto;
+      }
+      .cell-copy-btn:hover {
+        background: #e2e8f0;
+        color: #0f172a;
+      }
+      .cell-copy-btn.copied {
+        opacity: 1;
+        pointer-events: auto;
+        color: #2563eb;
+        background: #dbeafe;
+      }
+      .copy-toast {
+        position: fixed;
+        top: 18px;
+        right: 18px;
+        padding: 6px 10px;
+        border-radius: 999px;
+        background: rgba(15, 23, 42, 0.92);
+        color: #fff;
+        font-size: 11px;
+        font-weight: 700;
+        letter-spacing: 0.02em;
+        box-shadow: 0 10px 30px rgba(15, 23, 42, 0.18);
+        opacity: 0;
+        transform: translateY(-6px);
+        pointer-events: none;
+        transition:
+          opacity 0.18s ease,
+          transform 0.18s ease;
+        z-index: 300;
+      }
+      .copy-toast.show {
+        opacity: 1;
+        transform: translateY(0);
+      }
       /* tr:nth-child(even) {
         background-color: #f8fafc;
       } */
@@ -646,6 +715,8 @@
       </div>
     </div>
 
+    <div id="copy-toast" class="copy-toast">Copied</div>
+
     <script>
       let rawData = [];
       let headers = [];
@@ -855,7 +926,7 @@
             let rowHTML = "<tr>";
             row.forEach((cell, i) => {
               if (visibleColumns.has(i))
-                rowHTML += `<td>${highlightText(cell, query)}</td>`;
+                rowHTML += `<td><div class="table-cell"><span class="cell-value">${highlightText(cell, query)}</span><button type="button" class="cell-copy-btn" data-copy-value="${escapeHtmlAttribute(cell)}" aria-label="Copy cell value" onclick="copyCellValue(this)"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg></button></div></td>`;
             });
             return rowHTML + "</tr>";
           })
@@ -864,15 +935,66 @@
           `Total Rows: ${rawData.length - 1} | Matches: ${data.length}`;
       }
 
+      function escapeHtml(text) {
+        return String(text ?? "")
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;")
+          .replace(/\"/g, "&quot;")
+          .replace(/'/g, "&#39;");
+      }
+
+      function escapeHtmlAttribute(text) {
+        return escapeHtml(text).replace(/`/g, "&#96;");
+      }
+
       function highlightText(text, query) {
-        if (!query) return text;
+        const escapedText = escapeHtml(text);
+        if (!query) return escapedText;
         const regex = new RegExp(
           `(${query.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")})`,
           "gi",
         );
-        return text
-          .toString()
-          .replace(regex, '<span class="search-highlight">$1</span>');
+        return escapedText.replace(
+          regex,
+          '<span class="search-highlight">$1</span>',
+        );
+      }
+
+      async function copyCellValue(button) {
+        const value = button.dataset.copyValue || "";
+        try {
+          if (navigator.clipboard && window.isSecureContext) {
+            await navigator.clipboard.writeText(value);
+          } else {
+            const tempInput = document.createElement("textarea");
+            tempInput.value = value;
+            tempInput.setAttribute("readonly", "");
+            tempInput.style.position = "absolute";
+            tempInput.style.left = "-9999px";
+            document.body.appendChild(tempInput);
+            tempInput.select();
+            document.execCommand("copy");
+            document.body.removeChild(tempInput);
+          }
+          button.classList.add("copied");
+          window.clearTimeout(button._copyResetTimer);
+          button._copyResetTimer = window.setTimeout(() => {
+            button.classList.remove("copied");
+          }, 1200);
+          showCopyToast();
+        } catch (error) {
+          console.error("Failed to copy cell value", error);
+        }
+      }
+
+      function showCopyToast() {
+        const toast = document.getElementById("copy-toast");
+        toast.classList.add("show");
+        window.clearTimeout(showCopyToast._timer);
+        showCopyToast._timer = window.setTimeout(() => {
+          toast.classList.remove("show");
+        }, 900);
       }
 
       function resetAllFilters(apply = true) {
